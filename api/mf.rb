@@ -1,8 +1,11 @@
 require 'sinatra/base'
 require 'sinatra/reloader' if development?
+require './helpers/database'
 
 module API
   class Mf < Sinatra::Application
+    set :db, Helpers::Database.new().connect()
+    
     def cleanup arr
       arr.map! { |str| str.gsub("\r", " ").gsub("\n", " ").gsub("\t", " ").gsub(' ', ' ').gsub('&amp;', '&').squeeze(" ").try(:strip) }
     end
@@ -12,23 +15,30 @@ module API
         # send_file './public/index.html'
       end
 
-      get '/company' do
-        # Get all companies from mongo
+      get '/companies' do
+        content_type :json
+        coll = settings.db.collection('companies')
+        coll.find.to_a.to_json
       end
 
       get '/company/:cui' do
         content_type :json
         cui = params[:cui]
+        coll = settings.db.collection('companies')
+        record = coll.find_one({:_id => "#{cui}"})
         
-        # check if data already exists in mongo
-        
-        # data doesn't exist in mongo, get data from mfinante
-        agent = Mechanize.new
-        page = agent.post("http://www.mfinante.ro/infocodfiscal.html", { "cod" => "#{cui}", "pagina" => "domenii", "b1" => "VIZUALIZARE", "captcha" => "5bd"})
-        keys = cleanup(page.search("//center[1]//tr//td[1]/font").map(&:text))
-        vals = cleanup(page.search("//center[1]//tr//td[2]/font").map(&:text))
-        Hash[keys.zip vals].to_json
-        # Save data to mongo
+        if record
+          return record.to_json
+        else
+          # data doesn't exist in mongo, get data from mfinante and save it
+          agent = Mechanize.new
+          page = agent.post("http://www.mfinante.ro/infocodfiscal.html", { "cod" => "#{cui}", "pagina" => "domenii", "b1" => "VIZUALIZARE", "captcha" => "5bd"})
+          keys = cleanup(page.search("//center[1]//tr//td[1]/font").map(&:text))
+          vals = cleanup(page.search("//center[1]//tr//td[2]/font").map(&:text))
+          data = Hash[keys.zip vals].to_json
+          
+          return coll.insert({ "_id" => "#{cui}", "data" => data })
+        end
       end
 
       delete '/company/:cui' do

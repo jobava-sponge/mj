@@ -26,7 +26,7 @@ module API
         cui = params[:cui]
         coll = settings.db.collection('companies')
         record = coll.find_one({:_id => "#{cui}"})
-        
+
         if record
           return record.to_json
         else
@@ -35,9 +35,15 @@ module API
           page = agent.post("http://www.mfinante.ro/infocodfiscal.html", { "cod" => "#{cui}", "pagina" => "domenii", "b1" => "VIZUALIZARE", "captcha" => "5bd"})
           keys = cleanup(page.search("//center[1]//tr//td[1]/font").map(&:text))
           vals = cleanup(page.search("//center[1]//tr//td[2]/font").map(&:text))
-          data = Hash[keys.zip vals].to_json
+          data = Hash[keys.zip vals]
           
-          return coll.insert({ "_id" => "#{cui}", "data" => data })
+          if data.empty?
+            halt 404, { message: "Not found", status: 404 }.to_json
+          else
+            obj = { :_id => "#{cui}", "data" => data }
+            coll.insert(obj)
+            return obj.to_json
+          end
         end
       end
 

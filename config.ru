@@ -1,6 +1,6 @@
 require 'bundler'
 Bundler.require
 
-require './api/mf'
+require './api/mj'
 
-run API::Mf
+run API::Mj

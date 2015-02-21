@@ -1,8 +1,10 @@
 require 'bundler'
 Bundler.require
 
-class Company
-  # define property here
+require "sinatra/reloader" if development?
+
+def cleanup arr
+  arr.map! { |str| str.gsub("\r", " ").gsub("\n", " ").gsub("\t", " ").gsub(' ', ' ').gsub('&amp;', '&').squeeze(" ").try(:strip) }
 end
 
 get '/' do
@@ -10,33 +12,23 @@ get '/' do
 end
 
 get '/company' do
-  content_type :json
-  @company = Company.all(:order => :created_at.desc)
-  @company.to_json
+  # Get all companies from mongo
 end
 
-post '/company/new/:cui' do
+get '/company/:cui' do
   content_type :json
+  cui = params[:cui]
+  
+  # check if data already exists in mongo
+  
+  # data doesn't exist in mongo, get data from mfinante
+  agent = Mechanize.new
+  page = agent.post("http://www.mfinante.ro/infocodfiscal.html", { "cod" => "#{cui}", "pagina" => "domenii", "b1" => "VIZUALIZARE", "captcha" => "5bd"})
+  keys = cleanup(page.search("//center[1]//tr//td[1]/font").map(&:text))
+  vals = cleanup(page.search("//center[1]//tr//td[2]/font").map(&:text))
+  Hash[keys.zip vals].to_json
+  # Save data to mongo
 end
 
-get '/company/:id' do
-  content_type :json
-  @company = Company.get(params[:id].to_i)
-
-  if @company
-    @company.to_json
-  else
-    halt 404
-  end
-end
-
-delete '/company/:id/delete' do
-  content_type :json
-  @company = Company.get(params[:id].to_i)
-
-  if @company.destroy
-    {:success => "ok"}.to_json
-  else
-    halt 500
-  end
+delete '/company/:cui' do
 end

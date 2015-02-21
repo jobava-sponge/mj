@@ -87,6 +87,7 @@ DEPENDENCIES
   json
   mechanize
   mongo
+  nori
   savon (= 2.5.1)
   sinatra
   sinatra-contrib

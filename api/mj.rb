@@ -3,21 +3,21 @@ require 'sinatra/reloader' if development?
 require './helpers/database'
 require 'savon'
 require 'nori'
+require './helpers/soap'
 
 module API
   class Mj < Sinatra::Application
-    #set :db, Helpers::Database.new().connect()
+    set :db, Helpers::Database.new().connect()
     
     namespace '/api/v1' do
-      get '/' do
-        content_type  'text/xml' ,  "charset" => "utf-8"
-        # content_type  json ,  "charset" => "utf-8"
-        client = Savon.client(endpoint: "http://portalquery.just.ro/Query.asmx", wsdl: "http://portalquery.just.ro/Query.asmx?WSDL", pretty_print_xml: true)
-        message = {institutie: "TribunalulTIMIS"}
-        response = client.call(:cautare_dosare,message: message)
-        response.to_xml
+      get '/filldb/:institution' do
+        coll = settings.db.collection('institutionsFiles')
+        obj = Helpers::Soap.get_inst(params[:institution])
+        coll.insert(obj)
+        status 201
       end
     end
 
   end
+
 end
